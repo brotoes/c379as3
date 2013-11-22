@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-lpthread
+CFLAGS=-pthread
 
 saucer: saucer.c
 

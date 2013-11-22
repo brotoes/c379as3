@@ -13,13 +13,13 @@
 struct missile_data {
 	int x;
 	int y;
-    int ttl;
+	int ttl;
 };
 
 struct saucer_data {
 	int x;
 	int y;
-    int ttl;
+	int ttl;
 	int speed;
 };
 
