@@ -9,14 +9,15 @@ static struct saucer_data * saucers;
 static struct missile_data * missiles;
 static struct winsize win;
 
-static pthread_t last_thread_id;
+static pthread_t launcher_id;
+static pthread_t * saucer_id;
+static pthread_t * missile_id;
 static pthread_barrier_t global_barrier;
-static pthread_barrier_t creation_barrier;
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t newobj_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-static int new_objs;
 static int nproc;
-static int new_missile_ind;
+static int next_missile;
 static int missiles_left;
 static int escaped;
 static int launcher_x;
@@ -27,17 +28,18 @@ static int playing;
 int
 main(int argc, char * argv[])
 {
+    int i;
 	int saucer_counter = 0;
 	int next_saucer = 0;
 	int next_missile = 0;
 	int bar_cnt;
-	char * drawbuf;
 
 	/*initialize everything*/
 	ioctl(0, TIOCGWINSZ, &win);
-	drawbuf = malloc(win.ws_row * win.ws_col * sizeof(char));
-	saucers = malloc(1024*sizeof(struct saucer_data));
-	missiles = malloc(1024*sizeof(struct missile_data));
+	saucers = malloc(MAX_SAUCERS*sizeof(struct saucer_data));
+	missiles = malloc(MAX_MISSILES*sizeof(struct missile_data));
+	saucer_id = malloc(MAX_SAUCERS*sizeof(pthread_t));
+	missile_id = malloc(MAX_MISSILES*sizeof(pthread_t));
 	nproc = get_nprocs();
 	pthread_setconcurrency(nproc);
 	missiles_left = START_MISSILES;
@@ -45,57 +47,22 @@ main(int argc, char * argv[])
 	saucer_rate = START_SAUCER_RATE;
 	score = 0;
 	playing = 1;
-	bar_cnt = 2;
+	bar_cnt = 2 + MAX_SAUCERS + MAX_MISSILES;
 
-	pthread_barrier_init(&global_barrier, NULL, bar_cnt); 
+	pthread_barrier_init(&global_barrier, NULL, bar_cnt);
 
-	/*init launcher thread*/
-	pthread_create(&last_thread_id, NULL, launcher_init, NULL);
+	/*init threads*/
+	pthread_create(&launcher_id, NULL, launcher_init, NULL);
+    for (i = 0; i < MAX_SAUCERS; i ++) {
+		pthread_create(&saucer_id[i], NULL, saucer_init, &saucers[i]);
+    } 
+    for (i = 0; i < MAX_MISSILES; i ++) {
+		pthread_create(&missile_id[i], NULL, missile_init, &missiles[i]);
+    } 
 
 	/*start synchronization loop*/
 	while(playing) {
-		/*reinitialized barriers if objects created*/
-		if (new_objs) {
-			printf("start\n");
-			bar_cnt += new_objs;
-			pthread_barrier_destroy(&global_barrier);
-			pthread_barrier_init(&global_barrier, NULL, bar_cnt);
-			pthread_barrier_wait(&creation_barrier);
-			printf("middle\n");
-			pthread_barrier_destroy(&creation_barrier);
-			pthread_barrier_init(&creation_barrier, NULL, bar_cnt);
-			pthread_barrier_wait(&global_barrier);
-			new_objs = 0;
-			printf("end\n");
-		}
-		/*perform action on any per loop global variables*/
-		new_missile_ind = -1;
-		saucer_counter = (saucer_counter + 1) % saucer_rate;
 		
-		/*Spawn saucers*/
-		if (saucer_counter == 0) {
-			/*TODO: check if reallocation is needed*/
-			pthread_create(&last_thread_id, NULL, 
-				saucer_init, &saucers[next_saucer]);
-			next_saucer ++;
-			pthread_mutex_lock(&mutex);
-			new_objs ++;
-			pthread_mutex_unlock(&mutex);
-		}
-		pthread_barrier_wait(&global_barrier);
-
-		/*wait for movement of missles and saucers*/
-		pthread_barrier_wait(&global_barrier);
-
-		/*wait for player interaction*/
-		pthread_barrier_wait(&global_barrier);
-
-		/*collision checks if missile spawned*/
-		/*put sprites into draw buffer*/
-		pthread_barrier_wait(&global_barrier);
-
-		/*draw everything to the screen*/
-		/*wait for next timer step*/
 		pthread_barrier_wait(&global_barrier);
 	}	
 
@@ -103,63 +70,22 @@ main(int argc, char * argv[])
 }
 
 void *
-launcher_init(void * data) 
+saucer_init(void * data) 
 {
+	struct saucer_data * self = (struct saucer_data *)data;
+    
 	while(playing) {
-		/*beginning of loop actions*/
-		if (new_objs) {
-			pthread_barrier_wait(&creation_barrier);
-			pthread_barrier_wait(&global_barrier);
-		}
-		pthread_barrier_wait(&global_barrier);
-
-		/*wait for saucers and missiles to move*/
-		pthread_barrier_wait(&global_barrier);
-
-		/*TODO:perform player interactions*/
-		pthread_barrier_wait(&global_barrier);
-
-		/*wait for collision checks*/
-		/*Wait for sprites to be put into draw buffer*/
-		pthread_barrier_wait(&global_barrier);
-
-		/*wait for end of loop actions*/
 		pthread_barrier_wait(&global_barrier);
 	}
+
 	pthread_exit(0);
 }
 
 void *
-saucer_init(void * data) 
+launcher_init(void * data) 
 {
-	struct saucer_data * self = (struct saucer_data *)data;
-	self->ttl = -1;
-
-	pthread_barrier_wait(&creation_barrier);
-	pthread_barrier_wait(&global_barrier);
-
 	while(playing) {
 		/*beginning of loop actions*/
-		if (new_objs) {
-			pthread_barrier_wait(&creation_barrier);
-			pthread_barrier_wait(&global_barrier);
-		}
-		if (self->ttl > 0) {
-			self->ttl --;
-		}
-		pthread_barrier_wait(&global_barrier);
-
-		/*move self*/
-		self->x += self->speed;
-		pthread_barrier_wait(&global_barrier);
-
-		/*wait for player interactions*/
-		pthread_barrier_wait(&global_barrier);
-
-		/*TODO:check for collisions if necessary*/
-		pthread_barrier_wait(&global_barrier);
-
-		/*wait for end of loop actions*/
 		pthread_barrier_wait(&global_barrier);
 	}
 	pthread_exit(0);
@@ -171,29 +97,7 @@ missile_init(void * data)
 	struct missile_data * self = (struct missile_data *)data;
 	self->ttl = -1;
 	while(playing) {
-		/*beginning of loop actions*/
-		if (new_objs) {
-			pthread_barrier_wait(&creation_barrier);
-			pthread_barrier_wait(&global_barrier);
-		}
-		if (self->ttl > 0) {
-			self->ttl --;
-		}
 		pthread_barrier_wait(&global_barrier);
-
-		/*move self*/
-		self->y -= MISSILE_SPEED;
-		pthread_barrier_wait(&global_barrier);
-
-		/*perform player interactions*/
-		pthread_barrier_wait(&global_barrier);
-
-		/*wait for collision checks*/ 
-		pthread_barrier_wait(&global_barrier);
-
-		/*wait for end of loop actions*/
-		pthread_barrier_wait(&global_barrier);
-		
 	}
 	pthread_exit(0);
 }

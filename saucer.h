@@ -1,6 +1,8 @@
 #ifndef SAUCER_H
 #define SAUCER_H
 
+#define MAX_SAUCERS 20
+#define MAX_MISSILES 30
 #define SAUCER_REGION_TOP 0
 #define SAUCER_REGION_BOT 5
 #define MISSILE_SPEED 5
