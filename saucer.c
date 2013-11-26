@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <curses.h>
 #include <signal.h>
+#include <string.h>
 #include "saucer.h"
 
 static struct saucer_data * saucers;
@@ -125,8 +126,11 @@ main(int argc, char * argv[])
 		/*Draw Everything*/
 		clear();
 
-		sprintf(datadisp, "[Missiles: %3d]  [Destroyed: %3d]  [Escaped: %3d/%3d]  [Score:%d %d]",
-			launcher.missiles_left, destroyed, escaped, MAX_ESCAPE, score, combo);
+		sprintf(datadisp, 
+			"[Missiles: %3d]  [Destroyed: %3d]  \
+[Escaped: %3d/%3d]  [Score:%d %d]",
+			launcher.missiles_left, destroyed, 
+			escaped, MAX_ESCAPE, score, combo);
 		move(0,0);
 
 		for (i = 0; i < MAX_SAUCERS; i ++) {
@@ -191,8 +195,8 @@ launcher_init(void * data)
 	/*cast input argument*/
 	struct launcher_data * self = (struct launcher_data *) data;
 
-	self->x = 800;
 	self->missiles_left = START_MISSILES;
+	self->x = -1;
 
 	while(playing) {
 		/*handle input*/
@@ -228,7 +232,10 @@ launcher_init(void * data)
 		}
 		pthread_barrier_wait(&substep_bar);
 
-		/*Do Nothing*/
+		/*Initial x position*/
+		if (self->x == -1) {
+			self->x = PRECISION*cols/2;
+		}
 		pthread_barrier_wait(&substep_bar);
 
 		/*Do Nothing*/
@@ -253,7 +260,7 @@ saucer_init(void * data)
 			/*move*/
 			self->x += self->speed;
 			/*check room bounds*/
-			if (self->x > (cols - 1)*PRECISION
+			if (self->x > (cols - 6)*PRECISION
 				&& self->state == STATE_LIVE) {
 				self->state = STATE_DEAD;
 				pthread_mutex_lock(&mutex);

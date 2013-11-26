@@ -9,7 +9,7 @@
 #define SAUCER_SPEED_TOP 5	/*range of speed saucers can have*/
 #define SAUCER_SPEED_LOW 1	/*	Change of x per game step*/
 #define START_MISSILES 10	/*How many missiles the player starts with*/
-#define START_SAUCER_RATE 5 	/*Number of seconds between saucer spawns*/
+#define START_SAUCER_RATE 5 	/*average seconds between saucer spawns*/
 #define GAME_SPEED 30 		/*Number of steps the game takes per second*/
 #define PRECISION 10		/*coordinate values within a col or row*/
 #define MISSILE_DELAY 10	/*number of steps between missile launches*/
