@@ -106,7 +106,7 @@ main(int argc, char * argv[])
 	/*start synchronization loop*/
 	while(playing) {
 		/*Spawn Saucers*/
-		if (loop_cnt % (saucer_rate*GAME_SPEED) == 0) {
+		if (rand() % (saucer_rate) == 0) {
 			saucers[next_saucer].speed = rand() % (SAUCER_SPEED_TOP -
 				SAUCER_SPEED_LOW + 1) + SAUCER_SPEED_LOW;
 			saucers[next_saucer].x = 0;
@@ -313,11 +313,12 @@ missile_init(void * data)
 		for (i = 0; i < MAX_SAUCERS; i ++) {
 			/*Check horizontal collision*/
 			if (saucers[i].state == STATE_LIVE &&
-				saucers[i].x <= self->x &&
-				saucers[i].x + 5*PRECISION >= self->x) {
+				saucers[i].x/PRECISION <= self->x/PRECISION &&
+				saucers[i].x/PRECISION + 5 > self->x/PRECISION) {
 				/*Check vertical collision*/
-				if (saucers[i].y >= self->y - MISSILE_SPEED &&
-					saucers[i].y <= self->y) {
+				if (saucers[i].y/PRECISION <= 
+					self->y/PRECISION + MISSILE_SPEED &&
+					saucers[i].y/PRECISION >= self->y/PRECISION) {
 					/*check if the saucer is below another
 					 *already hit saucer*/
 					if (lowest_hit == -1 || saucers[i].y <
@@ -331,10 +332,10 @@ missile_init(void * data)
 			pthread_mutex_lock(&mutex);
 			saucers[lowest_hit].state = STATE_DEAD;
 			self->state = STATE_DEAD;
-			score += combo * (100 + 10 * saucers[lowest_hit].speed);
+			score += combo * (lines + 10 * saucers[lowest_hit].speed);
 			combo ++;
 			destroyed ++;
-			launcher.missiles_left += MISSILE_REWARD;
+			launcher.missiles_left += combo;
 			pthread_mutex_unlock(&mutex);
 		}
 		pthread_barrier_wait(&substep_bar);
