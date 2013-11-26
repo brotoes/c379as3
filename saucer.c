@@ -109,7 +109,7 @@ main(int argc, char * argv[])
 	/*start synchronization loop*/
 	while(playing) {
 		/*Spawn Saucers*/
-		if (rand() % (saucer_rate) == 0) {
+		if (rand() % (saucer_rate*2) == 0) {
 			saucers[next_saucer].speed = rand() % (SAUCER_SPEED_TOP -
 				SAUCER_SPEED_LOW + 1) + SAUCER_SPEED_LOW;
 			saucers[next_saucer].x = 0;
