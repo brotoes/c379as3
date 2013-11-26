@@ -31,6 +31,7 @@ static int score;
 static int playing;
 static int loop_cnt;
 static int combo;
+static int max_combo;
 static int killed;
 
 static void
@@ -44,6 +45,7 @@ main(int argc, char * argv[])
 {
 	char datadisp[80];
 	int i;
+	int j;
 	int saucer_counter = 0;
 	int next_saucer = 0;
 	int next_missile = 0;
@@ -72,6 +74,7 @@ main(int argc, char * argv[])
 	escaped = 0;
 	playing = 1;
 	loop_cnt = 0;
+	max_combo = 1;
 	combo = 1;
 	killed = 0;
 	srand(time(NULL));
@@ -127,27 +130,54 @@ main(int argc, char * argv[])
 		clear();
 
 		sprintf(datadisp, 
-			"[Missiles: %3d]  [Destroyed: %3d]  \
+			"[Missiles: %5d]  [Destroyed: %5d]  \
 [Escaped: %3d/%3d]  [Score:%d %d]",
 			launcher.missiles_left, destroyed, 
 			escaped, MAX_ESCAPE, score, combo);
 		move(0,0);
 
+		/*draw saucers*/
 		for (i = 0; i < MAX_SAUCERS; i ++) {
 			if (saucers[i].state == STATE_LIVE) {
-				move(saucers[i].y/PRECISION, saucers[i].x/PRECISION);
+				move(saucers[i].y/PRECISION, 
+					saucers[i].x/PRECISION);
 				addstr("<--->");
 			}
+			if (saucers[i].state == STATE_FALLING) {
+				move(saucers[i].y/PRECISION, 
+					saucers[i].x/PRECISION);
+				addstr("<***>");
+				for (j = 0; j < 3; j ++) {
+					move((saucers[i].y - 10 -
+						(loop_cnt+j)%30)/PRECISION, 
+						(saucers[i].x+(loop_cnt+j)%30)
+						/PRECISION + 2);
+					switch (rand()%3) {
+						case 0:
+						case 1: {
+							addch('*');
+						}break;
+						case 2: {
+							addch('.');	
+						}
+
+					}
+				}
+			}
 		}
+		/*draw missiles*/
 		for (i = 0; i < MAX_MISSILES; i ++) {
 			if (missiles[i].state == STATE_LIVE) {
-				move(missiles[i].y/PRECISION, missiles[i].x/PRECISION);
+				move(missiles[i].y/PRECISION,
+					 missiles[i].x/PRECISION);
 				addch('^');
 			}
 		}
+		/*draw launcher*/
 		move(lines - 2, launcher.x/PRECISION);
 		addch('|');
 		move(lines - 1, 0);
+		/*draw data*/
 		addstr(datadisp);
 		move(lines - 1, cols - 1);
 		refresh();
@@ -170,16 +200,22 @@ main(int argc, char * argv[])
 			pthread_barrier_wait(&step_bar);
 		}
 		if (killed) {
+			/*terminate cleanly and print score*/
 			endwin();
 			printf("GAME LEFT...\n");
-			printf("SCORE: %9d\n", score);
+			printf("SCORE: %20d\n", score);
+			printf("HIGHEST COMBO: %12d\n", max_combo);
+			printf("SAUCERS DESTROYED: %8d\n", destroyed);
 			return 0;
 		}
 	}
 
+	/*exit and print score*/
 	endwin();
 	printf("GAME OVER...\n");
-	printf("SCORE: %9d\n", score);
+	printf("SCORE: %20d\n", score);
+	printf("HIGHEST COMBO: %12d\n", max_combo);
+	printf("SAUCERS DESTROYED: %8d\n", destroyed);
 	return 0;
 }
 
@@ -260,13 +296,20 @@ saucer_init(void * data)
 			/*move*/
 			self->x += self->speed;
 			/*check room bounds*/
-			if (self->x > (cols - 6)*PRECISION
-				&& self->state == STATE_LIVE) {
+			if (self->x > (cols - 6)*PRECISION) {
 				self->state = STATE_DEAD;
 				pthread_mutex_lock(&mutex);
 				combo = 1;
 				escaped ++;
 				pthread_mutex_unlock(&mutex);
+			}
+		}
+		if (self->state == STATE_FALLING) {
+			self->y += FALL_SPEED;
+			self->x += self->speed/2;
+			if (self->y > (lines-2)*PRECISION ||
+				loop_cnt % (FALL_TIME*2) == 0) {
+				self->state = STATE_DEAD;
 			}
 		}
 		pthread_barrier_wait(&substep_bar);
@@ -314,7 +357,7 @@ missile_init(void * data)
 			/*Check horizontal collision*/
 			if (saucers[i].state == STATE_LIVE &&
 				saucers[i].x/PRECISION <= self->x/PRECISION &&
-				saucers[i].x/PRECISION + 5 > self->x/PRECISION) {
+				saucers[i].x/PRECISION + 4 > self->x/PRECISION) {
 				/*Check vertical collision*/
 				if (saucers[i].y/PRECISION <= 
 					self->y/PRECISION + MISSILE_SPEED &&
@@ -330,11 +373,18 @@ missile_init(void * data)
 		}
 		if (lowest_hit >= 0 && self->state == STATE_LIVE) {
 			pthread_mutex_lock(&mutex);
-			saucers[lowest_hit].state = STATE_DEAD;
+			saucers[lowest_hit].state = STATE_FALLING;
 			self->state = STATE_DEAD;
 			score += combo * (lines + 10 * saucers[lowest_hit].speed);
 			combo ++;
+			if (combo > max_combo) {
+				max_combo = combo;	
+			}
 			destroyed ++;
+			saucer_rate -= RATE_INCREASE;
+			if (saucer_rate < MIN_RATE) {
+				saucer_rate = MIN_RATE;	
+			}
 			launcher.missiles_left += combo;
 			pthread_mutex_unlock(&mutex);
 		}
