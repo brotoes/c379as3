@@ -138,15 +138,16 @@ main(int argc, char * argv[])
 
 		/*draw saucers*/
 		for (i = 0; i < MAX_SAUCERS; i ++) {
+			int x = saucers[i].x/PRECISION;
+			int y = saucers[i].y/PRECISION;
 			if (saucers[i].state == STATE_LIVE) {
-				move(saucers[i].y/PRECISION, 
-					saucers[i].x/PRECISION);
+				move(y, x);
 				addstr("<--->");
 			}
 			if (saucers[i].state == STATE_FALLING) {
-				move(saucers[i].y/PRECISION, 
-					saucers[i].x/PRECISION);
+				move(y, x);
 				addstr("<***>");
+				/*draw smoke trails*/
 				for (j = 0; j < 3; j ++) {
 					move((saucers[i].y - 10 -
 						(loop_cnt+j)%30)/PRECISION, 
@@ -163,6 +164,56 @@ main(int argc, char * argv[])
 
 					}
 				}
+				/*draw explosion on recently hit rocket*/
+				switch (loop_cnt - saucers[i].death_time) {
+					case 1: {
+						move(y, x - 1);
+						addch('.');
+						
+						move(y - 1, x + 1);
+						addch('.');
+					
+						move(y - 1, x + 3);
+						addch('.');
+						
+						move(y, x + 5);
+						addch('.');
+						
+						move(y + 1, x + 3);
+						addch('.');
+						
+						move(y + 1, x + 1);
+						addch('.');
+					} break;
+					case 2: {
+						move(y, x - 2);
+						addch('.');
+						
+						move(y - 2, x);
+						addch('.');
+					
+						move(y - 2, x + 2);
+						addch('.');
+						
+						move(y - 2, x + 4);
+						addch('.');
+					
+						move(y, x + 6);
+						addch('.');
+						
+						move(y + 2, x + 4);
+						addch('.');
+						
+						move(y + 2, x + 2);
+						addch('.');
+						
+						move(y + 2, x);
+						addch('.');
+					}break;
+					case 3: {
+						
+					}
+				}
 			}
 		}
 		/*draw rockets*/
@@ -173,7 +224,7 @@ main(int argc, char * argv[])
 				addch('^');
 				for (j = 0; j < 2; j ++) {
 					move((rockets[i].y + 10 +
-						(loop_cnt+j*20)%30)/PRECISION,
+						(loop_cnt+j*10)%20)/PRECISION,
 						(rockets[i].x)/PRECISION);
 					addch('.');
 				}
@@ -196,7 +247,7 @@ main(int argc, char * argv[])
 			for (i = 0; i < MAX_ROCKETS; i ++) {
 				rocket_onscreen += rockets[i].state;
 			}
-			if (!rocket_onscreen) {
+			if (!rocket_onscreen || escaped >= MAX_ESCAPE) {
 				playing = 0;	
 			}
 		}
@@ -314,7 +365,7 @@ saucer_init(void * data)
 			self->y += FALL_SPEED;
 			self->x += self->speed/2;
 			if (self->y > (lines-2)*PRECISION ||
-				loop_cnt % (FALL_TIME*2) == 0) {
+				loop_cnt - self->death_time == FALL_TIME) {
 				self->state = STATE_DEAD;
 			}
 		}
@@ -383,6 +434,7 @@ rocket_init(void * data)
 			self->state = STATE_DEAD;
 			score += combo * (lines + 10 * saucers[lowest_hit].speed);
 			combo ++;
+			saucers[lowest_hit].death_time = loop_cnt;
 			if (combo > max_combo) {
 				max_combo = combo;	
 			}

@@ -12,13 +12,13 @@
 #define START_SAUCER_RATE 100	/*average steps between saucer spawns*/
 #define GAME_SPEED 30 		/*Number of steps the game takes per second*/
 #define PRECISION 10		/*coordinate values within a col or row*/
-#define ROCKET_DELAY 10	/*number of steps between rocket launches*/
+#define ROCKET_DELAY 10		/*number of steps between rocket launches*/
 #define MAX_ESCAPE 10		/*number of escaped allowed before game over*/
 #define RATE_INCREASE 1		/*How much is subtracted from saucer_rate
 				 *Upon killing a saucer*/
 #define MIN_RATE 30		/*Fastest saucers may spawn*/
 #define FALL_SPEED 2		/*Speed a saucer falls*/
-#define FALL_TIME 100		/*average number of steps a dead saucer falls*/
+#define FALL_TIME 60		/*number of steps a dead saucer falls*/
 				 
 #define STATE_LIVE 1
 #define STATE_DEAD 0
@@ -42,6 +42,7 @@ struct saucer_data {
 	int y;
 	int state;
 	int speed;
+	int death_time;
 };
 
 static void killhandler();
