@@ -26,6 +26,11 @@
 #define STATE_HIT 2
 #define STATE_FALLING 4
 
+#define COLOR_OBJECT 1		 /*colors for ncurses*/
+#define COLOR_EXPLOSION 2
+#define COLOR_SHIELD 3
+#define COLOR_BG 4
+
 struct launcher_data {
 	int x;
 	int rockets_left;

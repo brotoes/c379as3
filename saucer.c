@@ -56,7 +56,7 @@ main(int argc, char * argv[])
 	sa.sa_handler = killhandler;
 	sigemptyset(&sa.sa_mask);
 	if (sigaction(SIGINT, &sa, NULL) == -1) {
-		err(1, "sigaction failed\n");	
+		err(1, "sigaction failed\n");
 	}
 
 	/*initialize variables*/
@@ -87,30 +87,39 @@ main(int argc, char * argv[])
 		err(1, "Error creating thread\n");
 	}
 	for (i = 0; i < MAX_SAUCERS; i ++) {
-		if (pthread_create(&saucer_id[i], NULL, saucer_init, &saucers[i])) {
+		if (pthread_create(&saucer_id[i], NULL,
+			saucer_init, &saucers[i])) {
 			err(1, "Error creating thread\n");
 		}
 	}
 	for (i = 0; i < MAX_ROCKETS; i ++) {
-		if (pthread_create(&rocket_id[i], NULL, rocket_init, &rockets[i])) {
+		if (pthread_create(&rocket_id[i], NULL,
+			rocket_init, &rockets[i])) {
 			err(1, "Error creating thread\n");
 		}
 	}
 
 	/*initialize ncurses*/
 	initscr();
+	start_color();
 	crmode();
 	noecho();
 	clear();
 	nodelay(stdscr, true);
 	cols = COLS;
 	lines = LINES;
+	init_pair(COLOR_OBJECT, COLOR_WHITE, COLOR_BLACK);
+	init_pair(COLOR_EXPLOSION, COLOR_YELLOW, COLOR_BLACK);
+	init_pair(COLOR_SHIELD, COLOR_BLUE, COLOR_BLACK);
+	init_pair(COLOR_BG, COLOR_BLACK, COLOR_BLACK);
+
 
 	/*start synchronization loop*/
 	while(playing) {
 		/*Spawn Saucers*/
 		if (rand() % (saucer_rate*2) == 0) {
-			saucers[next_saucer].speed = rand() % (SAUCER_SPEED_TOP -
+			saucers[next_saucer].speed = 
+				rand() % (SAUCER_SPEED_TOP -
 				SAUCER_SPEED_LOW + 1) + SAUCER_SPEED_LOW;
 			saucers[next_saucer].x = 0;
 			saucers[next_saucer].state = STATE_LIVE;
@@ -130,10 +139,10 @@ main(int argc, char * argv[])
 		/*Draw Everything*/
 		clear();
 
-		sprintf(datadisp, 
+		sprintf(datadisp,
 			"[Rockets: %5d]  [Destroyed: %5d]  \
 [Escaped: %3d/%3d]  [Score:%d %d]",
-			launcher.rockets_left, destroyed, 
+			launcher.rockets_left, destroyed,
 			escaped, MAX_ESCAPE, score, combo);
 		move(0,0);
 
@@ -143,8 +152,10 @@ main(int argc, char * argv[])
 			int y = saucers[i].y/PRECISION;
 			if (saucers[i].state == STATE_LIVE) {
 				move(y, x);
+				attron(COLOR_PAIR(COLOR_OBJECT));
 				addstr("<--->");
 				if (saucers[i].shield_up && x > 0) {
+					attron(COLOR_PAIR(COLOR_SHIELD));
 					move(y - 1, x - 1);
 					addstr(" ----- ");
 					move(y, x - 1);
@@ -157,11 +168,13 @@ main(int argc, char * argv[])
 			}
 			if (saucers[i].state == STATE_FALLING) {
 				move(y, x);
+				attron(COLOR_PAIR(COLOR_OBJECT));
 				addstr("<***>");
 				/*draw smoke trails*/
+				attron(COLOR_PAIR(COLOR_EXPLOSION));
 				for (j = 0; j < 3; j ++) {
 					move((saucers[i].y - 10 -
-						(loop_cnt+j)%30)/PRECISION, 
+						(loop_cnt+j)%30)/PRECISION,
 						(saucers[i].x-(loop_cnt+j)%30)
 						/PRECISION + 2);
 					switch (rand()%3) {
@@ -170,54 +183,55 @@ main(int argc, char * argv[])
 							addch('*');
 						}break;
 						case 2: {
-							addch('.');	
+							addch('.');
 						}
 
 					}
 				}
 				/*draw explosion on recently hit rocket*/
+				attron(COLOR_PAIR(COLOR_EXPLOSION));
 				switch (loop_cnt - saucers[i].death_time) {
 					case 1: {
 						move(y, x - 1);
 						addch('.');
-						
+
 						move(y - 1, x + 1);
 						addch('.');
-					
+
 						move(y - 1, x + 3);
 						addch('.');
-						
+
 						move(y, x + 5);
 						addch('.');
-						
+
 						move(y + 1, x + 3);
 						addch('.');
-						
+
 						move(y + 1, x + 1);
 						addch('.');
 					} break;
 					case 2: {
 						move(y, x - 2);
 						addch('.');
-						
+
 						move(y - 2, x);
 						addch('.');
-					
+
 						move(y - 2, x + 2);
 						addch('.');
-						
+
 						move(y - 2, x + 4);
 						addch('.');
-					
+
 						move(y, x + 6);
 						addch('.');
-						
+
 						move(y + 2, x + 4);
 						addch('.');
-						
+
 						move(y + 2, x + 2);
 						addch('.');
-						
+
 						move(y + 2, x);
 						addch('.');
 					}break;
@@ -229,17 +243,20 @@ main(int argc, char * argv[])
 			if (rockets[i].state == STATE_LIVE) {
 				move(rockets[i].y/PRECISION,
 					 rockets[i].x/PRECISION);
+				attron(COLOR_PAIR(COLOR_OBJECT));
 				addch('^');
 				for (j = 0; j < 2; j ++) {
 					move((rockets[i].y + 10 +
 						(loop_cnt+j*10)%20)/PRECISION,
 						(rockets[i].x)/PRECISION);
+					attron(COLOR_PAIR(COLOR_EXPLOSION));
 					addch('.');
 				}
 			}
 		}
 		/*draw launcher*/
 		move(lines - 2, launcher.x/PRECISION);
+		attron(COLOR_PAIR(COLOR_OBJECT));
 		addch('|');
 		move(lines - 1, 0);
 		/*draw data*/
@@ -256,7 +273,7 @@ main(int argc, char * argv[])
 				rocket_onscreen += rockets[i].state;
 			}
 			if (!rocket_onscreen || escaped >= MAX_ESCAPE) {
-				playing = 0;	
+				playing = 0;
 			}
 		}
 		/*Wait for next game step*/
@@ -422,11 +439,13 @@ rocket_init(void * data)
 			/*Check horizontal collision*/
 			if (saucers[i].state == STATE_LIVE &&
 				saucers[i].x/PRECISION <= self->x/PRECISION &&
-				saucers[i].x/PRECISION + 4 > self->x/PRECISION) {
+				saucers[i].x/PRECISION + 4 >
+				self->x/PRECISION) {
 				/*Check vertical collision*/
-				if (saucers[i].y/PRECISION <= 
+				if (saucers[i].y/PRECISION <=
 					self->y/PRECISION + ROCKET_SPEED &&
-					saucers[i].y/PRECISION >= self->y/PRECISION) {
+					saucers[i].y/PRECISION >=
+					self->y/PRECISION) {
 					/*check if the saucer is below another
 					 *already hit saucer*/
 					if (lowest_hit == -1 || saucers[i].y <
@@ -436,21 +455,23 @@ rocket_init(void * data)
 				}
 			}
 		}
+		/*perform hit actions*/
 		if (lowest_hit >= 0 && self->state == STATE_LIVE) {
 			pthread_mutex_lock(&mutex);
 			if (!saucers[lowest_hit].shield_up) {
 				saucers[lowest_hit].state = STATE_FALLING;
 				self->state = STATE_DEAD;
-				score += combo * (lines + 10 * saucers[lowest_hit].speed);
+				score += combo * (lines + 10 *
+					saucers[lowest_hit].speed);
 				combo ++;
 				saucers[lowest_hit].death_time = loop_cnt;
 				if (combo > max_combo) {
-					max_combo = combo;	
+					max_combo = combo;
 				}
 				destroyed ++;
 				saucer_rate -= RATE_INCREASE;
 				if (saucer_rate < MIN_RATE) {
-					saucer_rate = MIN_RATE;	
+					saucer_rate = MIN_RATE;
 				}
 				launcher.rockets_left += combo;
 			} else {

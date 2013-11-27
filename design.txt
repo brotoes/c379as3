@@ -1,0 +1,90 @@
+Code Structure:
+	The code in 'saucer.c' relies heavily on pthread barriers for its
+synchronization. There are four phases in each of the thread types described
+in the section below. However, often these phases involve doing nothing,
+simply waiting for another thread to complete its work. Using this structure,
+it is possible to make the game behave quite predictably.
+	The game goes through its main loop (consisting of the four phases
+mentioned above) GAME_SPEED times per second. The main thread ensures this by
+waiting sufficient time at the end of each loop iteration. The phases are as
+follows:
+	-Phase 1: The Main thread will spawn (set state to STATE_LIVE) any
+		saucers it decides need be spawned. The saucer and rocket
+		threads will move according to their speed. The launcher thread
+		will move and spawn missiles according to user input. 
+	-Phase 2: The only thread that does something here are the rocket
+		threads. It performs collision detection, and modifies any data
+		structures accordingly.
+	-Phase 3: Here, rockets and saucers change their state from init to
+		live if necessary, completing their spawning.
+	-Phase 4: Now, the main thread goes through all the pertinent data
+		structures and draws them to the screen.
+
+	It is worth noting the coordinate system and the reasoning behind it.
+There are PRECISION coordinate points within every row and column. This allows
+for positioning and motion that is more accurate (even if it is not shown to 
+the user) than is allowed for by the number of rows and columns.
+	Owing to the game's strict synchronization based around steps, the
+refresh rate of the game cannot be faster than the time of a step. Also, the
+slowest an object can move is one coordinate point per step. Creating a finer
+coordinate system solves this problem.
+
+Threads:
+	There are four (including main) unique threads: a single main thread,
+a single launcher thread, an arbitrary number of saucer threads, and an
+arbitrary number of rocket threads. No new threads are ever created after the
+initialization of the game. The threads are always running, but when inactive,
+do nothing but wait at barriers, allowing for the game to remain synchronized.
+
+Critical Sections:
+	Because of the structure described above, critical sections have been
+minimalized. There exists a single mutex which handles all critical sections.
+There are three critical sections, as follows:
+	-Both places in code where the combo variable is modified, as this
+		variable is checked unpredictably
+	-The code rockets perform upon hitting a saucer, as it would cause
+		problems for two rockets, though unlikely, to hit the same
+		saucer simultaneously.
+
+Interface:
+'a': move launcher left
+'d': move launcher right
+' ': fire rocket
+Ctrl-c: Exit game (this will show a high score screen
+
+Upon losing the game, the high score screen is shown.
+
+Additional Features/Assumptions:
+	There are some interesting features worth noting:
+	-Saucers may spawn with shields. Essentially this means they must be
+		hit twice before dying. A shield is represented with a box of
+		hyphens.
+	-Upon being destroyed, a saucer will not simply disappear; it will, for
+		FALL_TIME steps, fall with trailing smoke
+	-Combos play a significant part in scoring. They also determine how
+		many rockets are rewarded to the player upon getting hit.
+	-Score rewarded upon destroying a rocket is determined by the formula
+		below:
+		COMBO * (LINES + 10 * SAUCER_SPEED)
+		
+		LINES is used so that players are rewarded for playing on a
+		larger (and more difficult) screen. Similarly, faster saucers
+		are presumably more difficult to shoot down and are thusly
+		worth more points.
+	-When one hits two saucers that appear to exists on top of each other
+		(remember that the coordinate system is finer tha allowed for
+		by rows and columns) the saucer that is *truly* lower will be
+		considered hit. If both actually exist with the same y
+		coordinate, it will arbitrarily choose between the two.
+	-If the player runs out of rockets, but rockets still exist on the
+		screen, the game will not exit immediately, but wait to see
+		if the rocket onscreen will hit something and reward the
+		player additional rockets.
+	-Because of the arbitrary fine coordinate system, missiles and rockets
+		will rarely exist in the exact same location, even when one
+		accounts for coordinate system (rockets move faster than one
+		row per step). As such, rockets check a range of locations 
+		(starting where the rocket was last step up to where it is
+		now). As such, rockets will usually fly past a saucer before
+		hitting it.
+	-COLORS! The game is colorful.
