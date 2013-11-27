@@ -116,6 +116,7 @@ main(int argc, char * argv[])
 			saucers[next_saucer].state = STATE_LIVE;
 			saucers[next_saucer].y = rand() % (SAUCER_REGION_TOP -
 				SAUCER_REGION_BOT + 1) + SAUCER_REGION_BOT;
+			saucers[next_saucer].shield_up = rand()%2;
 			next_saucer = (next_saucer + 1) % MAX_SAUCERS;
 		}
 		pthread_barrier_wait(&substep_bar);
@@ -143,6 +144,16 @@ main(int argc, char * argv[])
 			if (saucers[i].state == STATE_LIVE) {
 				move(y, x);
 				addstr("<--->");
+				if (saucers[i].shield_up && x > 0) {
+					move(y - 1, x - 1);
+					addstr(" ----- ");
+					move(y, x - 1);
+					addch('|');
+					move(y + 1, x - 1);
+					addstr(" ----- ");
+					move(y, x + 5);
+					addch('|');
+				}
 			}
 			if (saucers[i].state == STATE_FALLING) {
 				move(y, x);
@@ -151,7 +162,7 @@ main(int argc, char * argv[])
 				for (j = 0; j < 3; j ++) {
 					move((saucers[i].y - 10 -
 						(loop_cnt+j)%30)/PRECISION, 
-						(saucers[i].x+(loop_cnt+j)%30)
+						(saucers[i].x-(loop_cnt+j)%30)
 						/PRECISION + 2);
 					switch (rand()%3) {
 						case 0:
@@ -210,9 +221,6 @@ main(int argc, char * argv[])
 						move(y + 2, x);
 						addch('.');
 					}break;
-					case 3: {
-						
-					}
 				}
 			}
 		}
@@ -430,20 +438,25 @@ rocket_init(void * data)
 		}
 		if (lowest_hit >= 0 && self->state == STATE_LIVE) {
 			pthread_mutex_lock(&mutex);
-			saucers[lowest_hit].state = STATE_FALLING;
-			self->state = STATE_DEAD;
-			score += combo * (lines + 10 * saucers[lowest_hit].speed);
-			combo ++;
-			saucers[lowest_hit].death_time = loop_cnt;
-			if (combo > max_combo) {
-				max_combo = combo;	
+			if (!saucers[lowest_hit].shield_up) {
+				saucers[lowest_hit].state = STATE_FALLING;
+				self->state = STATE_DEAD;
+				score += combo * (lines + 10 * saucers[lowest_hit].speed);
+				combo ++;
+				saucers[lowest_hit].death_time = loop_cnt;
+				if (combo > max_combo) {
+					max_combo = combo;	
+				}
+				destroyed ++;
+				saucer_rate -= RATE_INCREASE;
+				if (saucer_rate < MIN_RATE) {
+					saucer_rate = MIN_RATE;	
+				}
+				launcher.rockets_left += combo;
+			} else {
+				saucers[lowest_hit].shield_up = 0;
+				self->state = STATE_DEAD;
 			}
-			destroyed ++;
-			saucer_rate -= RATE_INCREASE;
-			if (saucer_rate < MIN_RATE) {
-				saucer_rate = MIN_RATE;	
-			}
-			launcher.rockets_left += combo;
 			pthread_mutex_unlock(&mutex);
 		}
 		pthread_barrier_wait(&substep_bar);
