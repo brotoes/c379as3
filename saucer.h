@@ -2,17 +2,17 @@
 #define SAUCER_H
 
 #define MAX_SAUCERS 30		/*Number of saucers on scren max*/
-#define MAX_MISSILES 30		/*Number of missiles on screen max*/
+#define MAX_ROCKETS 30		/*Number of rockets on screen max*/
 #define SAUCER_REGION_TOP 10	/*Region Saucers spawn within*/
 #define SAUCER_REGION_BOT 50	
-#define MISSILE_SPEED 5		/*Speed missiles move at*/
+#define ROCKET_SPEED 5		/*Speed rockets move at*/
 #define SAUCER_SPEED_TOP 5	/*range of speed saucers can have*/
 #define SAUCER_SPEED_LOW 1	/*	Change of x per game step*/
-#define START_MISSILES 10	/*How many missiles the player starts with*/
+#define START_ROCKETS 10	/*How many rockets the player starts with*/
 #define START_SAUCER_RATE 100	/*average steps between saucer spawns*/
 #define GAME_SPEED 30 		/*Number of steps the game takes per second*/
 #define PRECISION 10		/*coordinate values within a col or row*/
-#define MISSILE_DELAY 10	/*number of steps between missile launches*/
+#define ROCKET_DELAY 10	/*number of steps between rocket launches*/
 #define MAX_ESCAPE 10		/*number of escaped allowed before game over*/
 #define RATE_INCREASE 1		/*How much is subtracted from saucer_rate
 				 *Upon killing a saucer*/
@@ -28,10 +28,10 @@
 
 struct launcher_data {
 	int x;
-	int missiles_left;
+	int rockets_left;
 };
 
-struct missile_data {
+struct rocket_data {
 	int x;
 	int y;
 	int state;
@@ -48,6 +48,6 @@ static void killhandler();
 
 static void * launcher_init(void *);
 static void * saucer_init(void *);
-static void * missile_init(void *);
+static void * rocket_init(void *);
 
 #endif

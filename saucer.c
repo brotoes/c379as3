@@ -10,11 +10,11 @@
 #include "saucer.h"
 
 static struct saucer_data * saucers;
-static struct missile_data * missiles;
+static struct rocket_data * rockets;
 static struct launcher_data launcher;
 static pthread_t launcher_id;
 static pthread_t * saucer_id;
-static pthread_t * missile_id;
+static pthread_t * rocket_id;
 static pthread_barrier_t substep_bar;
 static pthread_barrier_t step_bar;
 static pthread_mutex_t mutex;
@@ -22,7 +22,7 @@ static pthread_mutex_t mutex;
 static int cols;
 static int lines;
 static int nproc;
-static int next_missile;
+static int next_rocket;
 static int next_saucer;
 static int escaped;
 static int destroyed;
@@ -48,8 +48,8 @@ main(int argc, char * argv[])
 	int j;
 	int saucer_counter = 0;
 	int next_saucer = 0;
-	int next_missile = 0;
-	const int thread_cnt = 2 + MAX_SAUCERS + MAX_MISSILES;
+	int next_rocket = 0;
+	const int thread_cnt = 2 + MAX_SAUCERS + MAX_ROCKETS;
 	struct sigaction sa;
 
 	/*handle signals*/
@@ -61,14 +61,14 @@ main(int argc, char * argv[])
 
 	/*initialize variables*/
 	saucers = malloc(MAX_SAUCERS*sizeof(struct saucer_data));
-	missiles = malloc(MAX_MISSILES*sizeof(struct missile_data));
+	rockets = malloc(MAX_ROCKETS*sizeof(struct rocket_data));
 	saucer_id = malloc(MAX_SAUCERS*sizeof(pthread_t));
-	missile_id = malloc(MAX_MISSILES*sizeof(pthread_t));
+	rocket_id = malloc(MAX_ROCKETS*sizeof(pthread_t));
 	nproc = get_nprocs();
 	pthread_setconcurrency(nproc);
 	saucer_rate = START_SAUCER_RATE;
 	next_saucer = 0;
-	next_missile = 0;
+	next_rocket = 0;
 	score = 0;
 	destroyed = 0;
 	escaped = 0;
@@ -91,8 +91,8 @@ main(int argc, char * argv[])
 			err(1, "Error creating thread\n");
 		}
 	}
-	for (i = 0; i < MAX_MISSILES; i ++) {
-		if (pthread_create(&missile_id[i], NULL, missile_init, &missiles[i])) {
+	for (i = 0; i < MAX_ROCKETS; i ++) {
+		if (pthread_create(&rocket_id[i], NULL, rocket_init, &rockets[i])) {
 			err(1, "Error creating thread\n");
 		}
 	}
@@ -130,9 +130,9 @@ main(int argc, char * argv[])
 		clear();
 
 		sprintf(datadisp, 
-			"[Missiles: %5d]  [Destroyed: %5d]  \
+			"[Rockets: %5d]  [Destroyed: %5d]  \
 [Escaped: %3d/%3d]  [Score:%d %d]",
-			launcher.missiles_left, destroyed, 
+			launcher.rockets_left, destroyed, 
 			escaped, MAX_ESCAPE, score, combo);
 		move(0,0);
 
@@ -165,12 +165,18 @@ main(int argc, char * argv[])
 				}
 			}
 		}
-		/*draw missiles*/
-		for (i = 0; i < MAX_MISSILES; i ++) {
-			if (missiles[i].state == STATE_LIVE) {
-				move(missiles[i].y/PRECISION,
-					 missiles[i].x/PRECISION);
+		/*draw rockets*/
+		for (i = 0; i < MAX_ROCKETS; i ++) {
+			if (rockets[i].state == STATE_LIVE) {
+				move(rockets[i].y/PRECISION,
+					 rockets[i].x/PRECISION);
 				addch('^');
+				for (j = 0; j < 2; j ++) {
+					move((rockets[i].y + 10 +
+						(loop_cnt+j*20)%30)/PRECISION,
+						(rockets[i].x)/PRECISION);
+					addch('.');
+				}
 			}
 		}
 		/*draw launcher*/
@@ -185,12 +191,12 @@ main(int argc, char * argv[])
 		/*Iterate Per-loop variables*/
 		loop_cnt ++;
 		/*Check End Game Conditions*/
-		if (launcher.missiles_left == 0 || escaped >= MAX_ESCAPE) {
-			int missile_onscreen = 0;
-			for (i = 0; i < MAX_MISSILES; i ++) {
-				missile_onscreen += missiles[i].state;
+		if (launcher.rockets_left == 0 || escaped >= MAX_ESCAPE) {
+			int rocket_onscreen = 0;
+			for (i = 0; i < MAX_ROCKETS; i ++) {
+				rocket_onscreen += rockets[i].state;
 			}
-			if (!missile_onscreen) {
+			if (!rocket_onscreen) {
 				playing = 0;	
 			}
 		}
@@ -222,16 +228,16 @@ main(int argc, char * argv[])
 static void *
 launcher_init(void * data)
 {
-	/*missile queued to be fired*/
+	/*rocket queued to be fired*/
 	int waiting = 0;
-	/*time until next missile can be fired*/
+	/*time until next rocket can be fired*/
 	int delay = 0;
 	/*store input*/
 	int inputc;
 	/*cast input argument*/
 	struct launcher_data * self = (struct launcher_data *) data;
 
-	self->missiles_left = START_MISSILES;
+	self->rockets_left = START_ROCKETS;
 	self->x = -1;
 
 	while(playing) {
@@ -249,19 +255,19 @@ launcher_init(void * data)
 				self->x += PRECISION;
 			}
 		} else if (inputc == ' ') {
-			/*launch missile*/
-			if (self->missiles_left) {
+			/*launch rocket*/
+			if (self->rockets_left) {
 				waiting = 1;
 			}
 		}
 		if (waiting && !delay) {
-			missiles[next_missile].x = self->x;
-			missiles[next_missile].y = (lines - 2)*PRECISION;
-			missiles[next_missile].state = STATE_INIT;
-			next_missile = (next_missile + 1 ) % MAX_MISSILES;
-			self->missiles_left --;
+			rockets[next_rocket].x = self->x;
+			rockets[next_rocket].y = (lines - 2)*PRECISION;
+			rockets[next_rocket].state = STATE_INIT;
+			next_rocket = (next_rocket + 1 ) % MAX_ROCKETS;
+			self->rockets_left --;
 			waiting = 0;
-			delay = MISSILE_DELAY;
+			delay = ROCKET_DELAY;
 		}
 		if (delay) {
 			delay --;
@@ -331,9 +337,9 @@ saucer_init(void * data)
 }
 
 static void *
-missile_init(void * data)
+rocket_init(void * data)
 {
-	struct missile_data * self = (struct missile_data *)data;
+	struct rocket_data * self = (struct rocket_data *)data;
 	int lowest_hit;
 	int i;
 
@@ -341,7 +347,7 @@ missile_init(void * data)
 
 	while(playing) {
 		/*Move*/
-		self->y -= MISSILE_SPEED;
+		self->y -= ROCKET_SPEED;
 		/*Test Room Boundaries*/
 		if (self->y <= 0 && self->state == STATE_LIVE) {
 			self->state = STATE_DEAD;
@@ -360,7 +366,7 @@ missile_init(void * data)
 				saucers[i].x/PRECISION + 4 > self->x/PRECISION) {
 				/*Check vertical collision*/
 				if (saucers[i].y/PRECISION <= 
-					self->y/PRECISION + MISSILE_SPEED &&
+					self->y/PRECISION + ROCKET_SPEED &&
 					saucers[i].y/PRECISION >= self->y/PRECISION) {
 					/*check if the saucer is below another
 					 *already hit saucer*/
@@ -385,7 +391,7 @@ missile_init(void * data)
 			if (saucer_rate < MIN_RATE) {
 				saucer_rate = MIN_RATE;	
 			}
-			launcher.missiles_left += combo;
+			launcher.rockets_left += combo;
 			pthread_mutex_unlock(&mutex);
 		}
 		pthread_barrier_wait(&substep_bar);
